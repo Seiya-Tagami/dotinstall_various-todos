@@ -5,7 +5,7 @@ namespace MyApp;
 class Todo
 {
   private $pdo;
-  
+
   public function __construct($pdo)
   {
     $this->pdo = $pdo;
@@ -20,10 +20,14 @@ class Todo
 
       switch ($action) {
         case 'add':
-          $this->add();
+          $id = $this->add();
+          header('Content-Type: application/json');
+          echo json_encode(['id' => $id]);
           break;
         case 'toggle':
-          $this->toggle();
+          $isDone = $this->toggle();
+          header('Content-Type: application/json');
+          echo json_encode(['is_done' => $isDone]);
           break;
         case 'delete':
           $this->delete();
@@ -35,7 +39,6 @@ class Todo
           exit;
       }
 
-      header('Location:' . SITE_URL);
       exit;
     };
   }
@@ -50,6 +53,7 @@ class Todo
     $stmt = $this->pdo->prepare("INSERT INTO todos (title) VALUES (:title)");
     $stmt->bindValue('title', $title, \PDO::PARAM_STR);
     $stmt->execute();
+    return (int)$this->pdo->lastInsertId();
   }
 
   private function toggle()
@@ -59,9 +63,19 @@ class Todo
       return;
     }
 
+    $stmt = $this->pdo->prepare("SELECT * FROM todos WHERE id = :id");
+    $stmt->bindValue(':id', $id, \PDO::PARAM_INT);
+    $stmt->execute();
+    $todo = $stmt->fetch();
+    if (empty($todo)) {
+      header('HTTP', true, 404);
+    }
+
     $stmt = $this->pdo->prepare("UPDATE todos SET is_done = NOT is_done WHERE id = :id");
     $stmt->bindValue(':id', $id, \PDO::PARAM_INT);
     $stmt->execute();
+
+    return (boolean) !$todo->is_done;
   }
 
   private function delete()
